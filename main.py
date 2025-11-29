@@ -15,6 +15,7 @@ from src.model_training import XGBoostModelEvaluation, XGBoostModelOptimization,
 #|--------------------------------------------------------------|
 
 LOG_DIR = "logs/"
+CREATE_HTML_LOGS = True
 
 #|--------------------------------------------------------------|
 #|                          Logger                              |
@@ -50,9 +51,9 @@ class Pipeline:
         ## STEP 2: EXPLORATORY DATA ANALYSIS (BEFORE FEATURE ENGINEERING)
         make_logs_prettier("STEP 2: EXPLORATORY DATA ANALYSIS (Before Feature Engineering)")
         eda = ExplaratoryDataAnalysis(dataset)
-        eda.view_into_data()  ## Podstawowe statystyki w konsoli
-        eda.get_plots(folder_name="BeforeFeatureEngineering")  ## Wykresy do folderu
-        eda.create_report(generate_html_report=False, title="Dataset report before Feature Engineering")  ## Pełny raport HTML
+        eda.view_into_data() 
+        eda.get_plots(folder_name="BeforeFeatureEngineering")
+        eda.create_report(generate_html_report = CREATE_HTML_LOGS, title="Dataset report before Feature Engineering") 
         
         ## STEP 3: FEATURE ENGINEERING
         make_logs_prettier("STEP 3: FEATURE ENGINEERING")
@@ -62,7 +63,7 @@ class Pipeline:
         ## STEP 4: EXPLORATORY DATA ANALYSIS (AFTER FEATURE ENGINEERING)
         make_logs_prettier("STEP 4: EXPLORATORY DATA ANALYSIS (After Feature Engineering)")
         eda = ExplaratoryDataAnalysis(dataset)
-        eda.create_report(generate_html_report=False, title="Dataset report after Feature Engineering")
+        eda.create_report(generate_html_report = CREATE_HTML_LOGS, title="Dataset report after Feature Engineering")
         
         ## STEP 5: DATA PREPARATION
         make_logs_prettier("STEP 5: DATA PREPARATION")
