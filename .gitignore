@@ -1,0 +1,9 @@
+columns.txt
+logs/
+report/
+models/
+plots/
+metrics/
+.venv/
+.vscode/
+src/__pycache__/

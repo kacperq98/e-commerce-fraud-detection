@@ -1,0 +1,3 @@
+kaggle_data:
+  dataset_id: umuttuygurr/e-commerce-fraud-detection-dataset
+  csv_filename: transactions.csv
