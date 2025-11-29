@@ -33,6 +33,7 @@ MODELS_PATH = "models/"
 PLOTS_PATH = "plots/ModelEvaluation/"
 METRICS_PATH = "metrics/"
 OPTUNA_PLOTS_PATH = "plots/Optuna/"
+PCA_COMPONENTS = 10
 
 #|--------------------------------------------------------------|
 #|                          Main part                           |
@@ -83,7 +84,7 @@ class DataPreparation:
     def run_data_preparing(self, test_size=0.2, random_state=42):
         train_test_dict = self._train_test_split(test_size=test_size, random_state=random_state)
         train_test_scaled_dict = self._normalization(train_test_dict)
-        X_pca = self._perform_pca(n_components = 5)
+        X_pca = self._perform_pca(n_components = PCA_COMPONENTS)
 
         fraud_count = (train_test_dict["y_train"] == 1).sum()
         non_fraud_count = (train_test_dict["y_train"] == 0).sum()
@@ -114,17 +115,20 @@ class XGBoostModelTraining:
         self.y_test = prepared_data["y_test"]
         self.scale_pos_weight = prepared_data["scale_pos_weight"]
         self.feature_names = prepared_data["feature_names"]
-        self.pca_n_components = 5
+        self.pca_n_components = PCA_COMPONENTS
         self.model = None
 
     def train_xgboost(self, params=None):
         if params is None:
-            params = {'n_estimators': 10,
-                    'max_depth': 2,
-                    'learning_rate': 0.1,
+            params = {'n_estimators': 8,
+                    'max_depth': 4,
+                    'learning_rate': 0.3,
                     'scale_pos_weight': self.scale_pos_weight,
                     'random_state': 42,
-                    'eval_metric': 'logloss'}
+                    'lambda': 0.8,
+                    'alpha': 0.2,
+                    'eval_metric': 'logloss',
+                    'base_score': 0.5}
         
         logger.info(f"Training XGBoost with parameters: {params}")
 
@@ -165,7 +169,7 @@ class LogisticRegressionBenchmark:
         self.y_test = prepared_data["y_test"]
         self.feature_names = prepared_data["feature_names"]
         self.model = None
-        self.pca_n_components = 5
+        self.pca_n_components = PCA_COMPONENTS
 
     def train(self, max_iter=1000, class_weight='balanced'):
         logger.info("Training Logistic Regression benchmark model...")
@@ -357,11 +361,14 @@ class XGBoostModelEvaluation:
         try:
             if len(self.X_test) > max_samples:
                 sample_indices = np.random.choice(len(self.X_test), max_samples, replace=False)
-                X_sample = self.X_test[sample_indices]
+                X_sample_df = self.X_test.iloc[sample_indices]
             else:
-                X_sample = self.X_test
+               X_sample_df = self.X_test
 
-            explainer = shap.TreeExplainer(self.model)
+            X_sample = X_sample_df.values
+            self.model.named_steps['xgbclassifier'] = self.model.named_steps['xgbclassifier'].base_score = 0.5
+
+            explainer = shap.TreeExplainer(self.model.named_steps['xgbclassifier'])
             shap_values = explainer.shap_values(X_sample)
 
             plt.figure(figsize=(12, 8))
@@ -384,7 +391,7 @@ class XGBoostModelEvaluation:
             logger.info(f"SHAP importance plot saved to {filepath}")
 
 
-            explainer_new = shap.Explainer(self.model, self.X_train[:100])
+            explainer_new = shap.Explainer(self.model, self.X_train[:100].values)
             shap_values_new = explainer_new(X_sample[:100])
 
             plt.figure(figsize=(12, 8))
@@ -477,21 +484,23 @@ class XGBoostModelOptimization:
         self.best_model = None
         self.study = None
 
-    def optimize_hyperparameters(self, n_trials=10, cv=5, scoring='roc_auc'):
+    def optimize_hyperparameters(self, n_trials=50, cv=10, scoring='f1'):
         logger.info(f"Starting Optuna optimization with {n_trials} trials...")
         logger.info(f"Using {cv}-fold cross-validation, optimizing for: {scoring}")
 
         def objective(trial):
             params = {
-                'max_depth': trial.suggest_int('max_depth', 2, 15),
+                'max_depth': trial.suggest_int('max_depth', 2, 30),
                 'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-                'n_estimators': trial.suggest_int('n_estimators', 2, 500),
+                'n_estimators': trial.suggest_int('n_estimators', 2, 300),
                 'min_child_weight': trial.suggest_int('min_child_weight', 1, 20),
                 'subsample': trial.suggest_float('subsample', 0.6, 1.0),
                 'colsample_bytree': trial.suggest_float('colsample_bytree', 0.4, 1.0),
+                "alpha": trial.suggest_float('alpha', 1e-8, 1.0, log=True),
+                "lambda": trial.suggest_float('lambda', 1e-8, 1.0, log=True),
                 'scale_pos_weight': self.scale_pos_weight,
                 'random_state': 42,
-                'eval_metric': 'logloss'}
+                'eval_metric': 'logloss',}
 
             model = XGBClassifier(**params)
             scores = cross_val_score(model, self.X_train, self.y_train, cv=cv, scoring=scoring)
