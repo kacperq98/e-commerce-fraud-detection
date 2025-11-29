@@ -31,8 +31,9 @@ import src.common as common
 
 MODELS_PATH = "models/"
 PLOTS_PATH = "plots/ModelEvaluation/"
-METRICS_PATH = "metrics/"
+SHAP_PATH = "plots/Shap/"
 OPTUNA_PLOTS_PATH = "plots/Optuna/"
+METRICS_PATH = "metrics/"
 PCA_COMPONENTS = 10
 
 #|--------------------------------------------------------------|
@@ -354,9 +355,10 @@ class XGBoostModelEvaluation:
                 'mean_score': float(cv_scores.mean()),
                 'std_score': float(cv_scores.std())}
 
-    def interpret_model_shap(self, max_samples=1000):
+    def interpret_model_shap(self, path = "BaseModel", max_samples=1000):
         logger.info("Generating SHAP interpretations...")
-        common.check_if_path_exists(PLOTS_PATH)
+        path = f"{SHAP_PATH}/{path}"
+        common.check_if_path_exists(f"{path}")
 
         try:
             if len(self.X_test) > max_samples:
@@ -366,7 +368,12 @@ class XGBoostModelEvaluation:
                X_sample_df = self.X_test
 
             X_sample = X_sample_df.values
-            self.model.named_steps['xgbclassifier'] = self.model.named_steps['xgbclassifier'].base_score = 0.5
+            
+            preprocessor = self.model.named_steps['standardscaler']
+            X_sample_transformed = preprocessor.transform(X_sample_df)
+            preprocessor = self.model.named_steps['pca']
+            X_sample_transformed = preprocessor.transform(X_sample_transformed)
+            X_sample = X_sample_transformed
 
             explainer = shap.TreeExplainer(self.model.named_steps['xgbclassifier'])
             shap_values = explainer.shap_values(X_sample)
@@ -375,7 +382,7 @@ class XGBoostModelEvaluation:
             shap.summary_plot(shap_values, X_sample, feature_names=self.feature_names, show=False)
             plt.title('SHAP Summary Plot - XGBoost')
             plt.tight_layout()
-            filepath = os.path.join(PLOTS_PATH, 'shap_summary.png')
+            filepath = os.path.join(path, 'shap_summary.png')
             plt.savefig(filepath, dpi=300, bbox_inches='tight')
             plt.close()
             logger.info(f"SHAP summary plot saved to {filepath}")
@@ -385,20 +392,19 @@ class XGBoostModelEvaluation:
                               plot_type="bar", show=False)
             plt.title('SHAP Feature Importance - XGBoost')
             plt.tight_layout()
-            filepath = os.path.join(PLOTS_PATH, 'shap_importance.png')
+            filepath = os.path.join(path, 'shap_importance.png')
             plt.savefig(filepath, dpi=300, bbox_inches='tight')
             plt.close()
             logger.info(f"SHAP importance plot saved to {filepath}")
 
-
-            explainer_new = shap.Explainer(self.model, self.X_train[:100].values)
+            explainer_new = shap.Explainer(self.model.named_steps['xgbclassifier'])
             shap_values_new = explainer_new(X_sample[:100])
 
             plt.figure(figsize=(12, 8))
             shap.plots.waterfall(shap_values_new[0], max_display=15, show=False)
             plt.title('SHAP Waterfall Plot - Single Prediction Breakdown')
             plt.tight_layout()
-            filepath = os.path.join(PLOTS_PATH, 'shap_waterfall.png')
+            filepath = os.path.join(path, 'shap_waterfall.png')
             plt.savefig(filepath, dpi=300, bbox_inches='tight')
             plt.close()
             logger.info(f"SHAP waterfall plot saved to {filepath}")
@@ -417,26 +423,10 @@ class XGBoostModelEvaluation:
 
             plt.title(f'SHAP Dependence Plot - {top_feature_name}')
             plt.tight_layout()
-            filepath = os.path.join(PLOTS_PATH, f'shap_dependence_{top_feature_name}.png')
+            filepath = os.path.join(path, f'shap_dependence_{top_feature_name}.png')
             plt.savefig(filepath, dpi=300, bbox_inches='tight')
             plt.close()
             logger.info(f"SHAP dependence plot saved to {filepath}")
-
-            plt.figure(figsize=(20, 3))
-            shap.force_plot(
-                explainer.expected_value, 
-                shap_values[0], 
-                X_sample[0], 
-                feature_names=self.feature_names,
-                matplotlib=True,
-                show=False)
-
-            plt.title('SHAP Force Plot - Single Prediction')
-            plt.tight_layout()
-            filepath = os.path.join(PLOTS_PATH, 'shap_force_plot.png')
-            plt.savefig(filepath, dpi=300, bbox_inches='tight')
-            plt.close()
-            logger.info(f"SHAP force plot saved to {filepath}")
 
             return shap_values
 
@@ -484,7 +474,7 @@ class XGBoostModelOptimization:
         self.best_model = None
         self.study = None
 
-    def optimize_hyperparameters(self, n_trials=50, cv=10, scoring='f1'):
+    def optimize_hyperparameters(self, n_trials=5, cv=10, scoring='f1'):
         logger.info(f"Starting Optuna optimization with {n_trials} trials...")
         logger.info(f"Using {cv}-fold cross-validation, optimizing for: {scoring}")
 
