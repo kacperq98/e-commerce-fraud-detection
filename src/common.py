@@ -23,3 +23,9 @@ def save_plot(folder_path = None, file_name = None):
 
     except Exception as e:
         logger.error(f"Can not save the plot. Error: {e}")
+
+def make_logs_prettier(message: str, separator_lines: int = 1):
+    for _ in range(separator_lines):
+        print("--------------------------------------------------------------")
+    
+    logger.info(message)
