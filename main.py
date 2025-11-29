@@ -92,28 +92,33 @@ class Pipeline:
         cv_results = evaluator.evaluate_with_cross_validation(cv=5)
         
         ## STEP 10: MODEL INTERPRETATION (SHAP)
-        make_logs_prettier("STEP 10: MODEL INTERPRETATION (C)")
+        make_logs_prettier("STEP 10: MODEL INTERPRETATION")
         evaluator.interpret_model_shap()
         
-        ## STEP 11: HYPERPARAMETER OPTIMIZATION
+        # ## STEP 11: HYPERPARAMETER OPTIMIZATION
         make_logs_prettier("STEP 11: HYPERPARAMETER OPTIMIZATION")
         optimizer = XGBoostModelOptimization(prepared_data)
         best_params = optimizer.optimize_hyperparameters()
         optimizer.save_optimization_results()
         
-        ## STEP 12: TRAINING OPTIMIZED MODEL
+        # ## STEP 12: TRAINING OPTIMIZED MODEL
         make_logs_prettier("STEP 12: TRAINING OPTIMIZED MODEL")
         optimized_trainer = optimizer.train_optimized_model(prepared_data)
         optimized_model = optimized_trainer.get_model()
         optimized_trainer.save_model("xgboost_optimized.pkl")
         
-        ## STEP 13: EVALUATING OPTIMIZED MODEL
+        # ## STEP 13: EVALUATING OPTIMIZED MODEL
         make_logs_prettier("STEP 13: EVALUATING OPTIMIZED MODEL")
         optimized_evaluator = XGBoostModelEvaluation(optimized_model, prepared_data)
         optimized_metrics = optimized_evaluator._evaluate_model()
         optimized_evaluator.save_metrics("xgboost_optimized_metrics.json")
         
-        ## STEP 14: SUMMARY
+        ## STEP 14: MODEL INTERPRETATION (SHAP)
+        make_logs_prettier("STEP 14: MODEL INTERPRETATION")
+        evaluator.interpret_model_shap(path="optimized_model")
+        
+        
+        # ## STEP 14: SUMMARY
         make_logs_prettier("WHOLE PIPELINE COMPLETED SUCCESSFULLY")
         make_logs_prettier("Benchmark Model (Logistic Regression):")
         make_logs_prettier(f"  - ROC-AUC:  {benchmark_model_metrics['roc_auc']:.4f}")
