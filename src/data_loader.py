@@ -49,11 +49,11 @@ class DataLoader():
 
         except FileNotFoundError:
             logger.error(f"File not found")
-            raise
+            raise FileNotFoundError
         except Exception as e:
             logger.exception(f"Unexpeceted Eror\n {e}")
-            raise
-
+            raise Exception
+        
     def _get_dataset_info(self) -> dict:
             if self.dataset is None:
                 raise ValueError("Dataset not loaded")
